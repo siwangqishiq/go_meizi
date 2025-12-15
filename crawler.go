@@ -91,7 +91,8 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 
 	var url string = ablum.Href
 	fmt.Println("download cover image:", ablum.Cover)
-	coverLocalFile := fmt.Sprintf("/root/assets/imgs/%d_%d_cover.jpg", ablum.Id, time.Now().UnixMilli())
+	filename := fmt.Sprintf("imgs/%d_%d_cover.jpg", ablum.Id, time.Now().UnixMilli())
+	coverLocalFile := "/root/assets/" + filename
 	err := DownloadFile(coverLocalFile, ablum.Cover)
 	var noCover bool = false
 	if err != nil {
@@ -100,7 +101,7 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 		noCover = true
 	}
 
-	ablum.Cover = coverLocalFile
+	ablum.Cover = filename
 
 	imageList := []string{}
 	visitedUrl := make(map[string]bool)
@@ -132,10 +133,11 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 		imageUrl, srcExist := aTag.Find("img").Attr("src")
 		if srcExist && imageUrl != "" {
 			curTime := time.Now()
-			imageLocalFile := fmt.Sprintf("/root/assets/imgs/%d_%d.jpg", ablum.Id, curTime.UnixMilli())
+			localFileName := fmt.Sprintf("imgs/%d_%d.jpg", ablum.Id, curTime.UnixMilli())
+			imageLocalFile := "/root/assets" + localFileName
 			err = DownloadFile(imageLocalFile, imageUrl)
 			if err == nil {
-				imageList = append(imageList, imageLocalFile)
+				imageList = append(imageList, localFileName)
 			}
 		}
 
