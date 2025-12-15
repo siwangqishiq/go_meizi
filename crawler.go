@@ -66,8 +66,8 @@ func (crawler *Crawler)FetchAblums(){
 	crawler.Ablums = append(crawler.Ablums, diffAblmus...)
 
 	jsonData, _ := json.Marshal(crawler.Ablums)
-	os.Remove("all.json")
-	os.WriteFile("all.json", jsonData, 0777)
+	os.Remove("/root/assets/data/all.json")
+	os.WriteFile("/root/assets/data/all.json", jsonData, 0777)
 }
 
 func (crawler *Crawler) DiffAblums() []Ablum {
