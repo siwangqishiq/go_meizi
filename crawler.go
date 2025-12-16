@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -68,11 +67,19 @@ func (crawler *Crawler)FetchAblums(){
 		go diffAblmus[i].FillAndDownloadImages(&wg)
 	}
 	wg.Wait()
-	crawler.Ablums = append(crawler.Ablums, diffAblmus...)
 
-	jsonData, _ := json.Marshal(crawler.Ablums)
-	os.Remove(FindPathByOs("data/all.json"))
-	os.WriteFile(FindPathByOs("data/all.json"), jsonData, 0777)
+	if(len(diffAblmus) > 0){
+		crawler.Ablums = append(crawler.Ablums, diffAblmus...)
+		slices.SortFunc(crawler.Ablums, func(left , right Ablum) int {
+			return right.Id - left.Id
+		})
+
+		jsonData, _ := json.Marshal(crawler.Ablums)
+		os.Remove(FindPathByOs("data/all.json"))
+		os.WriteFile(FindPathByOs("data/all.json"), jsonData, 0777)
+	}else{
+		fmt.Println("Not found new ablums.")
+	}
 }
 
 func (crawler *Crawler) DiffAblums() []Ablum {
@@ -222,9 +229,4 @@ func GetAidFromHref(href string) int {
 	return value
 }
 
-func FindPathByOs(pathName string) string{
-	if runtime.GOOS == "linux" {
-		return "/root/assets/" + pathName
-	}
-	return pathName
-}
+

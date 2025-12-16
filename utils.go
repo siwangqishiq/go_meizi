@@ -5,7 +5,24 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
+	"strings"
 )
+
+func FindPathByOs(pathName string) string{
+	if runtime.GOOS == "linux" {
+		return "/root/assets/" + pathName
+	}
+	return "assets/"+pathName
+}
+
+func FindPathUrl() string{
+	if runtime.GOOS == "linux" {
+		return HOST_REL
+	}
+	return HOST_TEST
+}
+
 
 func PrepareDirs() {
 	fmt.Println("Prepare dirs.")
@@ -36,3 +53,32 @@ func DownloadFile(filepath string, url string) error {
 	_, err = io.Copy(out, resp.Body)
 	return err
 }
+
+func StringExt(str string) string {
+	if len(str) <= 0 {
+		return ""
+	}
+	
+	lstIndex := strings.LastIndex(str,".")
+	if(lstIndex < 0){
+		return ""
+	}
+	return str[lstIndex: len(str)]
+}
+
+func Min(a,b int) int{
+	if a < b {
+		return a
+	} else{
+		return b
+	}
+}
+
+func Max(a,b int) int{
+	if a >= b {
+		return a
+	} else{
+		return b
+	}
+}
+

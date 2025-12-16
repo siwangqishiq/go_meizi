@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
 	fmt.Println("Start go_meizi...")
@@ -8,4 +11,15 @@ func main() {
 	var crawler = NewCrawler()
 	crawler.Load()
 	crawler.FetchAblums()
+
+	go func ()  {
+		for {
+			time.Sleep(4 * time.Hour)
+			fmt.Println("Start crawler Task...")
+			crawler.FetchAblums()
+		}
+	}()
+
+	var httpServer = NewHttpServer(crawler)
+	httpServer.StartServer()
 }
