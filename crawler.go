@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,7 +38,7 @@ func NewCrawler() *Crawler{
 
 func (crawler *Crawler) Load() {
 	fmt.Println("load ablums.")
-	jsonData,err := os.ReadFile("/root/assets/data/all.json")
+	jsonData,err := os.ReadFile(FindPathByOs("data/all.json"))
 	if(err != nil){
 		fmt.Println("Readl all.json error")
 	}
@@ -46,6 +47,10 @@ func (crawler *Crawler) Load() {
 	if(err != nil){
 		fmt.Println("decode json data error.")
 	}
+
+	slices.SortFunc(crawler.Ablums, func(left , right Ablum) int {
+		return right.Id - left.Id
+	})
 
 	fmt.Println("Read ablums size", len(crawler.Ablums))
 	for i := range crawler.Ablums{
@@ -66,8 +71,8 @@ func (crawler *Crawler)FetchAblums(){
 	crawler.Ablums = append(crawler.Ablums, diffAblmus...)
 
 	jsonData, _ := json.Marshal(crawler.Ablums)
-	os.Remove("/root/assets/data/all.json")
-	os.WriteFile("/root/assets/data/all.json", jsonData, 0777)
+	os.Remove(FindPathByOs("data/all.json"))
+	os.WriteFile(FindPathByOs("data/all.json"), jsonData, 0777)
 }
 
 func (crawler *Crawler) DiffAblums() []Ablum {
@@ -82,6 +87,10 @@ func (crawler *Crawler) DiffAblums() []Ablum {
 			needCatchAblums = append(needCatchAblums, abm)
 		}
 	}
+
+	slices.SortFunc(crawler.Ablums, func(left , right Ablum) int {
+		return right.Id - left.Id
+	})
 	fmt.Println("need catch ablum size ", len(needCatchAblums))
 	return needCatchAblums
 }
@@ -92,7 +101,7 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 	var url string = ablum.Href
 	fmt.Println("download cover image:", ablum.Cover)
 	filename := fmt.Sprintf("imgs/%d_%d_cover.jpg", ablum.Id, time.Now().UnixMilli())
-	coverLocalFile := "/root/assets/" + filename
+	coverLocalFile := FindPathByOs(filename)
 	err := DownloadFile(coverLocalFile, ablum.Cover)
 	var noCover bool = false
 	if err != nil {
@@ -134,7 +143,7 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 		if srcExist && imageUrl != "" {
 			curTime := time.Now()
 			localFileName := fmt.Sprintf("imgs/%d_%d.jpg", ablum.Id, curTime.UnixMilli())
-			imageLocalFile := "/root/assets" + localFileName
+			imageLocalFile := FindPathByOs(localFileName)
 			err = DownloadFile(imageLocalFile, imageUrl)
 			if err == nil {
 				imageList = append(imageList, localFileName)
@@ -156,7 +165,6 @@ func (ablum *Ablum) FillAndDownloadImages(group *sync.WaitGroup) []string {
 	}
 	return imageList
 }
-
 
 func FetchAblums(url string) []Ablum {
 	fmt.Println("fetchAblums")
@@ -199,7 +207,6 @@ func FetchAblums(url string) []Ablum {
 	})
 	return ablumList
 }
-
 func GetAidFromHref(href string) int {
 	if href == "" {
 		return -1
@@ -215,32 +222,9 @@ func GetAidFromHref(href string) int {
 	return value
 }
 
-func PrepareDirs() {
-	fmt.Println("Prepare dirs.")
-	os.Mkdir("/root/assets/data", 0777)
-	os.Mkdir("/root/assets/imgs", 0777)
-}
-
-func DownloadFile(filepath string, url string) error {
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
+func FindPathByOs(pathName string) string{
+	if runtime.GOOS == "linux" {
+		return "/root/assets/" + pathName
 	}
-	defer out.Close()
-
-	// 发起 HTTP 请求
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// 判断服务器返回状态码
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	// 将响应内容写入文件
-	_, err = io.Copy(out, resp.Body)
-	return err
+	return pathName
 }
