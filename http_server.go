@@ -25,6 +25,14 @@ type HttpResp struct {
 	Data any `json:"data"`
 }
 
+type HttpRespAblums struct {
+	Title  string   `json:"title"`
+	Href   string   `json:"href"`
+	Id     int      `json:"id"`
+	Cover  string   `json:"cover"`
+	Images []string `json:"images"`
+}
+
 func NewSuccessHttpResp(data any) HttpResp{
 	return HttpResp{
 		Code: HTTP_CODE_SUCCESS,
@@ -112,13 +120,16 @@ func HandleAblums(w http.ResponseWriter, req *http.Request, httpServer *HttpServ
 	json.NewEncoder(w).Encode(data)
 }
 
-func ReplaceImageResource(list []Ablum, h *HttpServer)[]Ablum{
-	ret := make([]Ablum, len(list))
-	copy(ret, list)
+func ReplaceImageResource(list []Ablum, h *HttpServer)[]HttpRespAblums{
+	ret := make([]HttpRespAblums, len(list))
+	
 	for i, abl := range list {
-		ret[i] = abl
+		ret[i].Id = abl.Id
+		ret[i].Title = abl.Title
+		ret[i].Href = abl.Href
+
 		ret[i].Cover = GenAssetFullPath(abl.Cover, h.port)
-		
+		ret[i].Images = make([]string, len(list[i].Images))
 		for j, img := range list[i].Images {
 			ret[i].Images[j] = GenAssetFullPath(img, h.port)
 		} //end for j
