@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片流展示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                /* 将原来的 1fr 改为保持两列 */
+                grid-template-columns: repeat(2, 1fr);
+                /* 可选：减小间距让卡片更宽 */
+                gap: 10px;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 260px;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+            background: linear-gradient(45deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        .card-content {
+            padding: 12px 15px;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            background: #fafafa;
+            border-top: 1px solid #eee;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #444;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #6a11cb;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            border-left: 4px solid #c62828;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #777;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>美图</h1>
+    </header>
+
+    <div class="container">
+        <div class="grid" id="grid">
+            <!-- 卡片将通过JavaScript动态生成 -->
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            加载中...
+        </div>
+
+        <div class="error-message" id="error" style="display: none;">
+            加载数据出错，请检查网络连接或稍后重试
+        </div>
+
+        <div class="empty-state" id="empty" style="display: none;">
+            <div class="empty-state-icon">📷</div>
+            <div>暂无图片数据</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>无限滚动加载更多内容...</p>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentPageId = null;
+        let isLoading = false;
+        let hasMoreData = true;
+
+        // DOM元素
+        const grid = document.getElementById('grid');
+        const loadingElement = document.getElementById('loading');
+        const errorElement = document.getElementById('error');
+        const emptyElement = document.getElementById('empty');
+
+        // 显示加载状态
+        function showLoading(show) {
+            loadingElement.style.display = show ? 'block' : 'none';
+        }
+
+        // 显示错误信息
+        function showError(show) {
+            errorElement.style.display = show ? 'block' : 'none';
+        }
+
+        // 显示空状态
+        function showEmpty(show) {
+            emptyElement.style.display = show ? 'block' : 'none';
+        }
+
+        // 创建卡片元素
+        function createCard(item) {
+            const card = document.createElement('div');
+            card.className = 'card fade-in';
+
+            const img = document.createElement('img');
+            img.className = 'card-image';
+            img.src = item.cover;
+            img.alt = item.title;
+            img.loading = 'lazy';
+            
+            img.onerror = function() {
+                this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjBmMGYwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                this.onerror = null;
+            };
+
+            const content = document.createElement('div');
+            content.className = 'card-content';
+
+            const title = document.createElement('div');
+            title.className = 'card-title';
+            title.textContent = item.title;
+
+            content.appendChild(title);
+            card.appendChild(img);
+            card.appendChild(content);
+
+            return card;
+        }
+
+        // 渲染数据
+        function renderData(dataList) {
+            if (dataList.length === 0 && grid.children.length === 0) {
+                showEmpty(true);
+                return;
+            }
+
+            dataList.forEach(item => {
+                const card = createCard(item);
+                grid.appendChild(card);
+            });
+        }
+
+        // 获取数据
+        async function fetchData() {
+            if (isLoading || !hasMoreData) return;
+
+            isLoading = true;
+            showLoading(true);
+            showError(false);
+
+            try {
+                let url = '/ablums';
+                if (currentPageId) {
+                    url += `?id=${currentPageId}`;
+                }
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.code === 200) {
+                    if (result.data && result.data.length > 0) {
+                        renderData(result.data);
+                        // 更新当前页ID，使用最后一个元素的id
+                        currentPageId = result.data[result.data.length - 1].id;
+                    } else {
+                        // 没有更多数据
+                        hasMoreData = false;
+                        if (grid.children.length === 0) {
+                            showEmpty(true);
+                        }
+                    }
+                } else {
+                    throw new Error(result.msg || '请求失败');
+                }
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                showError(true);
+            } finally {
+                isLoading = false;
+                showLoading(false);
+            }
+        }
+
+        // 无限滚动监听
+        function setupInfiniteScroll() {
+            const scrollThreshold = 300; // 距离底部多少像素时加载
+
+            function handleScroll() {
+                if (!isLoading && hasMoreData) {
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const windowHeight = window.innerHeight;
+                    const documentHeight = document.documentElement.scrollHeight;
+
+                    if (scrollTop + windowHeight >= documentHeight - scrollThreshold) {
+                        fetchData();
+                    }
+                }
+            }
+
+            // 使用防抖优化滚动性能
+            let scrollTimeout;
+            window.addEventListener('scroll', function() {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(handleScroll, 100);
+            });
+        }
+
+        // 初始化
+        function init() {
+            // 首次加载数据
+            fetchData();
+            // 设置无限滚动
+            setupInfiniteScroll();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
