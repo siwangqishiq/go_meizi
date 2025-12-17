@@ -13,6 +13,7 @@ import (
 const URL_INDEX = "/index"
 const URL_ASSETS = "/assets/"
 const URL_ABLUMS = "/ablums"
+const URL_WEB = "/web/"
 
 const HTTP_CODE_SUCCESS = 200
 const HTTP_CODE_ERROR = 404
@@ -70,6 +71,10 @@ func (h *HttpServer) StartServer() {
 
 	mux.HandleFunc(URL_ASSETS,func(w http.ResponseWriter,req *http.Request){
 		HandleAsset(w, req)
+	})
+
+	mux.HandleFunc(URL_WEB,func(w http.ResponseWriter,req *http.Request){
+		PutDirToCloud(w, req, URL_WEB, true)
 	})
 
 	mux.HandleFunc(URL_ABLUMS, func(w http.ResponseWriter,req *http.Request){
@@ -141,8 +146,8 @@ func GenAssetFullPath(input string, port int) string{
 	return fmt.Sprintf("%s:%d/assets/%s",FindPathUrl(),port,input)
 }
 
-func HandleAsset(resp http.ResponseWriter, req *http.Request){
-	fmt.Println("handle assets")
+func PutDirToCloud(resp http.ResponseWriter, req *http.Request, dir string,isLocalPath bool){
+	fmt.Println("handle PutDirToCloud")
 	fmt.Println("req path->", req.URL.Path)
 	// fmt.Println("req query->", r.URL.Query())
 
@@ -152,17 +157,23 @@ func HandleAsset(resp http.ResponseWriter, req *http.Request){
 		return
 	}
 
-	subpath, success := strings.CutPrefix(path, URL_ASSETS)
+	subpath, success := strings.CutPrefix(path, dir)
 	if !success {
 		http.Error(resp, "file not found", http.StatusNotFound)
 		return
 	}
 	fmt.Println("req subpath->", subpath)
 	
-	var filepath string = FindPathByOs("") + subpath
-
+	var filepath string = ""
+	if(isLocalPath){
+		filepath = dir[1:] + subpath
+	}else{
+		filepath = FindPathByOs("") + subpath
+	}
+	fmt.Println("file path =", filepath)
 	f, err := os.Open(filepath)
 	if err != nil {
+		fmt.Println("file not found->", filepath)
 		http.Error(resp, "file not found", http.StatusNotFound)
 		return
 	}
@@ -173,6 +184,7 @@ func HandleAsset(resp http.ResponseWriter, req *http.Request){
 		http.Error(resp, "cannot stat file", http.StatusInternalServerError)
 		return
 	}
+	fmt.Println("file IsDir", fi.IsDir(),"size",fi.Size())
 
 	// 获取 MIME 类型
 	ext := StringExt(filepath)
@@ -189,6 +201,10 @@ func HandleAsset(resp http.ResponseWriter, req *http.Request){
 	// resp.Header().Set("Content-Disposition", "attachment; filename=\""+fi.Name()+"\"")
 
 	http.ServeContent(resp, req, fi.Name(), fi.ModTime(), f)
+}
+
+func HandleAsset(resp http.ResponseWriter, req *http.Request){
+	PutDirToCloud(resp, req, URL_ASSETS, false)
 }
 
 
