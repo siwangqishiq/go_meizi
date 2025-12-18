@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片流展示</title>
+    <title>美图</title>
     <style>
         * {
             margin: 0;
@@ -165,6 +165,67 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .image-viewer {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+            touch-action: pan-y;
+        }
+
+        .viewer-track {
+            display: flex;
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        .viewer-item {
+            min-width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viewer-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .viewer-track {
+            touch-action: pan-y;
+            cursor: grab;
+        }
+        .viewer-track:active {
+            cursor: grabbing;
+        }
+        .viewer-close {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            font-size: 20px;
+            line-height: 36px;
+            text-align: center;
+            z-index: 10001;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .viewer-close:active {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* 防止滑动和点击冲突 */
+        .viewer-track {
+            touch-action: pan-y;
+        }
     </style>
 </head>
 <body>
@@ -196,17 +257,97 @@
         <p>无限滚动加载更多内容...</p>
     </div>
 
+    <!-- 图片预览浮层 -->
+    <div class="image-viewer" id="imageViewer" style="display:none;">
+        <div class="viewer-close" id="viewerClose">✕</div>
+        <div class="viewer-track" id="viewerTrack"></div>
+    </div>
+
     <script>
         // 全局变量
         let currentPageId = null;
         let isLoading = false;
         let hasMoreData = true;
 
+        const imageViewer = document.getElementById('imageViewer');
+        const viewerTrack = document.getElementById('viewerTrack');
+
+        let currentImages = [];
+        let currentIndex = 0;
+
         // DOM元素
         const grid = document.getElementById('grid');
         const loadingElement = document.getElementById('loading');
         const errorElement = document.getElementById('error');
         const emptyElement = document.getElementById('empty');
+
+        imageViewer.addEventListener('click', (e) => {
+        });
+
+        let startX = 0;
+        let deltaX = 0;
+        let isDragging = false;
+        let hasMoved = false;
+
+        viewerTrack.addEventListener('pointerdown', e => {
+            startX = e.clientX;
+            deltaX = 0;
+            isDragging = true;
+            viewerTrack.setPointerCapture(e.pointerId);
+        });
+
+        viewerTrack.addEventListener('pointermove', e => {
+            if (!isDragging) return;
+
+            hasMoved = true;
+
+            deltaX = e.clientX - startX;
+            viewerTrack.style.transform =
+                `translateX(calc(-${currentIndex * 100}% + ${deltaX}px))`;
+        });
+
+        imageViewer.addEventListener('click', e => {
+            if (hasMoved) {
+                hasMoved = false;
+                return;
+            }
+            if (e.target === imageViewer) {
+                closeImageViewer()
+            }
+        });
+
+        viewerTrack.addEventListener('pointerup', () => {
+            finishSwipe();
+        });
+
+        viewerTrack.addEventListener('pointercancel', () => {
+            finishSwipe();
+        });
+
+        function finishSwipe() {
+            if (!isDragging) return;
+            isDragging = false;
+
+            if (Math.abs(deltaX) > 60) {
+                if (deltaX < 0 && currentIndex < currentImages.length - 1) {
+                    currentIndex++;
+                } else if (deltaX > 0 && currentIndex > 0) {
+                    currentIndex--;
+                }
+            }
+            updateViewerPosition();
+            deltaX = 0;
+        }
+
+        window.addEventListener('popstate', e => {
+            if (imageViewer.style.display === 'block') {
+                closeImageViewer();
+            }
+        });
+
+        function updateViewerPosition() {
+            viewerTrack.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
 
         // 显示加载状态
         function showLoading(show) {
@@ -250,7 +391,52 @@
             card.appendChild(img);
             card.appendChild(content);
 
+            card.addEventListener('click', () => {
+                openImageViewer(item.images);
+            });
+
             return card;
+        }
+
+        document.getElementById('viewerClose').addEventListener('click', e => {
+            e.stopPropagation();
+            closeImageViewer(true);
+        });
+
+        function openImageViewer(images) {
+            currentImages = images;
+            currentIndex = 0;
+
+            viewerTrack.innerHTML = '';
+
+            images.forEach(src => {
+                const item = document.createElement('div');
+                item.className = 'viewer-item';
+
+                const img = document.createElement('img');
+                img.src = src;
+                img.loading = 'lazy';
+
+                item.appendChild(img);
+                viewerTrack.appendChild(item);
+            });
+
+            updateViewerPosition();
+            imageViewer.style.display = 'block';
+
+            // 禁止背景滚动
+            document.body.style.overflow = 'hidden';
+            history.pushState({ viewer: true }, '');
+        }
+
+        function closeImageViewer(triggerBack = true) {
+            imageViewer.style.display = 'none';
+            viewerTrack.innerHTML = '';
+            document.body.style.overflow = '';
+
+            if (triggerBack && history.state?.viewer) {
+                history.back();
+            }
         }
 
         // 渲染数据
